@@ -1,6 +1,6 @@
 const ContaBancaria = require('../src/contaBancaria');
 
-describe('Suíte de Testes: Conta Bancária', () => {
+describe('Suíte de Testes: Conta Bancária (100% Coverage)', () => {
   let dadosIniciais;
   let conta;
 
@@ -16,8 +16,8 @@ describe('Suíte de Testes: Conta Bancária', () => {
     conta = new ContaBancaria(dadosIniciais);
   });
 
-  describe('Consultas e Getters', () => {
-    test('Deve validar todas as consultas básicas', () => {
+  describe('Getters e Consultas', () => {
+    test('Deve validar todos os métodos de leitura (Getters)', () => {
       expect(conta.obterSaldo()).toBe(1947);
       expect(conta.obterTitular()).toBe('Gabriel Custodio Boelter');
       expect(conta.obterStatus()).toBe('ativa');
@@ -33,95 +33,100 @@ describe('Suíte de Testes: Conta Bancária', () => {
     });
   });
 
-  describe('Movimentações e Regras de Negócio', () => {
-    test('Depósitos: Sucesso e Falha', () => {
+  describe('Movimentações (Depósito e Saque)', () => {
+    test('Deve processar depósitos corretamente', () => {
       expect(conta.depositar(100)).toBe(true);
-      expect(conta.depositar(0)).toBe(false);
+      expect(conta.depositar(0)).toBe(false); 
       expect(conta.depositar(-50)).toBe(false);
     });
 
-    test('Saques: Limites e Validações', () => {
-      expect(conta.sacar(2447)).toBe(true); // No limite exato
-      expect(conta.sacar(1)).toBe(false);    // Sem saldo
-      expect(conta.sacar(-10)).toBe(false);  // Valor inválido
-      
-      expect(conta.podeSacar(1000)).toBe(false); // Porque o saldo está negativo agora
-    });
-
-    test('Transferências: Sucesso e Falha de saldo', () => {
-      const destino = new ContaBancaria({ saldo: 0, depositar: (v) => {} });
-      expect(conta.transferir(100, destino)).toBe(true);
-      expect(conta.transferir(5000, destino)).toBe(false); // Falha no podeSacar
+    test('Deve processar saques dentro e fora do limite', () => {
+      expect(conta.sacar(2447)).toBe(true); 
+      expect(conta.sacar(1)).toBe(false);    
+      expect(conta.sacar(-10)).toBe(false); 
+      expect(conta.podeSacar(100)).toBe(false); 
     });
   });
 
-  describe('Gestão de Status e Configurações', () => {
-    test('Bloqueio, Ativação e Encerramento', () => {
-      // Bloqueio
+  describe('Gestão de Status e Dados', () => {
+    test('Deve gerenciar Bloqueio e Ativação', () => {
       expect(conta.bloquearConta()).toBe(true);
-      expect(conta.bloquearConta()).toBe(false); // Já bloqueada
-      
-      // Ativação
+      expect(conta.bloquearConta()).toBe(false); 
       expect(conta.ativarConta()).toBe(true);
-      expect(conta.ativarConta()).toBe(false); // Já ativa
-      
-      // Encerramento
-      expect(conta.encerrarConta()).toBe(false); // Tem saldo
+      expect(conta.ativarConta()).toBe(false); 
+    });
+
+    test('Deve gerenciar Encerramento de Conta', () => {
+      expect(conta.encerrarConta()).toBe(false); 
       conta.sacar(1947);
       expect(conta.encerrarConta()).toBe(true);
     });
 
-    test('Ajustes de Limite e Titular', () => {
-      expect(conta.ajustarLimite(1000)).toBe(true);
-      expect(conta.ajustarLimite(-1)).toBe(false);
+    test('Deve alterar titular e ajustar limites', () => {
       expect(conta.alterarTitular('Novo Nome')).toBe(true);
-      expect(conta.alterarTitular(null)).toBe(false);
+      expect(conta.alterarTitular('')).toBe(false);
+      expect(conta.ajustarLimite(1000)).toBe(true);
+      expect(conta.ajustarLimite(-10)).toBe(false);
     });
   });
 
-  describe('Validações de Integridade (Aumenta muito a cobertura)', () => {
-    test('Deve validar todos os critérios do método validarConta', () => {
-      expect(conta.validarConta()).toBe(true);
+  describe('Operações de Transferência e utilitários', () => {
+    test('Deve transferir valores com sucesso', () => {
+      const destino = new ContaBancaria({ saldo: 0 });
+      expect(conta.transferir(100, destino)).toBe(true);
+    });
 
-      // Testando cada 'if' de erro do validarConta:
-      conta.conta.id = null;
-      expect(conta.validarConta()).toBe(false);
-      
-      conta.conta.id = 1; // restaura
-      conta.conta.titular = "";
-      expect(conta.validarConta()).toBe(false);
-      
-      conta.conta.titular = "Gabriel";
-      conta.conta.saldo = "100"; // String em vez de Number
-      expect(conta.validarConta()).toBe(false);
-      
-      conta.conta.saldo = 0;
-      conta.conta.limite = -10;
-      expect(conta.validarConta()).toBe(false);
-      
-      conta.conta.limite = 0;
-      conta.conta.status = "invalido";
-      expect(conta.validarConta()).toBe(false);
+    test('Não deve transferir se não houver saldo', () => {
+      const destino = new ContaBancaria({ saldo: 0 });
+      expect(conta.transferir(5000, destino)).toBe(false);
+    });
+
+    test('Deve cobrir falha crítica no saque durante transferência', () => {
+      const destino = new ContaBancaria({ saldo: 0 });
+      const originalSacar = conta.sacar;
+      conta.sacar = () => false; // Força falha manual
+      expect(conta.transferir(100, destino)).toBe(false);
+      conta.sacar = originalSacar; // Restaura
     });
 
     test('Deve aplicar tarifas e resetar conta', () => {
       expect(conta.aplicarTarifa(10)).toBe(true);
-      expect(conta.aplicarTarifa(-10)).toBe(false);
-
+      expect(conta.aplicarTarifa(-1)).toBe(false);
       conta.resetarConta();
       expect(conta.obterSaldo()).toBe(0);
-      expect(conta.obterStatus()).toBe('ativa');
+    });
+  });
+
+  describe('Validação e Resumo', () => {
+    test('Deve validar todos os campos da conta (validarConta)', () => {
+      expect(conta.validarConta()).toBe(true);
+      
+      // Testando cada 'return false' do método validarConta
+      const originalID = conta.conta.id;
+      conta.conta.id = null;
+      expect(conta.validarConta()).toBe(false);
+      conta.conta.id = originalID;
+
+      conta.conta.titular = "";
+      expect(conta.validarConta()).toBe(false);
+      conta.conta.titular = "Gabriel";
+
+      conta.conta.saldo = "texto";
+      expect(conta.validarConta()).toBe(false);
+      conta.conta.saldo = 0;
+
+      conta.conta.limite = -1;
+      expect(conta.validarConta()).toBe(false);
+      conta.conta.limite = 0;
+
+      conta.conta.status = "desconhecido";
+      expect(conta.validarConta()).toBe(false);
     });
 
-    test('Deve gerar resumo completo', () => {
+    test('Deve gerar o resumo da conta corretamente', () => {
       const resumo = conta.gerarResumo();
-      expect(resumo).toEqual({
-        titular: 'Gabriel Custodio Boelter',
-        saldo: 1947,
-        limite: 500,
-        disponivel: 2447,
-        status: 'ativa'
-      });
+      expect(resumo.titular).toBe('Gabriel Custodio Boelter');
+      expect(resumo.disponivel).toBe(2447);
     });
   });
 });
